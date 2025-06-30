@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jadwal Perawatan Diri Tahunan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Dreamcore Pastels - Background: #F0F8FF (Alice Blue), Primary Text/Headings: #6A5ACD (Slate Blue), Accent/Highlight: #FFB6C1 (Light Pink), Secondary Text/Subtle: #87CEEB (Sky Blue), Borders/Shadows: #DDA0DD (Plum) -->
+    <!-- Application Structure Plan: The SPA is structured around a central yearly calendar for intuitive navigation, visually enhanced with Y2K/Dreamcore elements. Users can navigate months to select any day. Clicking a day reveals its specific hair care, skincare, and body care routines in a dedicated detail panel, derived from a repeating weekly pattern. All supplementary information sections (tips, notes, AI advice) have been removed to create a focused, streamlined experience on the daily schedule itself. The playful Unicode stickers and soft color palette are maintained to keep the whimsical and engaging user experience. -->
+    <!-- Visualization & Content Choices: 
+    - Yearly Calendar: Report's implicit yearly need -> Goal: Organize/Navigate -> Method: Interactive calendar grid (HTML/CSS) with Y2K/Dreamcore styling. Interaction: Month navigation, clickable days with visual feedback. Justification: Provides a familiar and intuitive way to explore daily routines across a year, now with an enhanced aesthetic. Method: Vanilla JS.
+    - Daily Routine Detail: Report's steps with added timing -> Goal: Inform -> Method: Detailed checklist with cute icons and time (HTML/Unicode) for Hair, Skincare, and Bodycare. Interaction: Checkboxes for task completion. Justification: Enhances clarity and trackability of each step across multiple care domains with a playful touch. Method: HTML/JS.
+    - No quantitative data exists in the source report, so Chart.js/Plotly.js are not used. The focus is on interactive information architecture, all wrapped in the requested aesthetic. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F0F8FF; /* Alice Blue - soft, dreamy light blue */
+            color: #6A5ACD; /* Slate Blue - a softer, dreamy purple-blue */
+        }
+        .day-cell {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border-radius: 1rem; /* More rounded */
+            border: 2px solid #DDA0DD; /* Plum border */
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .day-cell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            border-color: #FFB6C1; /* Light Pink on hover */
+        }
+        .day-cell.active {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            background-color: #FFB6C1; /* Light Pink */
+            border-color: #6A5ACD; /* Slate Blue */
+            color: white;
+            font-weight: 600;
+        }
+        .day-cell.today {
+            border-color: #6A5ACD; /* Slate Blue */
+            background-color: #EFEAE6; /* Soft grey-pink */
+            font-weight: 700;
+            color: #5D544D;
+        }
+        .day-cell.inactive {
+            color: #B0A9A2;
+            background-color: #F8F8F8;
+            cursor: not-allowed;
+            border-color: #E0E0E0;
+        }
+        .task-item label {
+            transition: color 0.3s;
+        }
+        .task-item input:checked + label {
+            text-decoration: line-through;
+            color: #87CEEB; /* Sky Blue for completed tasks */
+        }
+        .header-sticker {
+            position: absolute;
+            font-size: 2.5rem; /* Larger stickers */
+            opacity: 0.7;
+            animation: float 3s ease-in-out infinite alternate;
+        }
+        .header-sticker.left {
+            left: -30px;
+            top: -10px;
+            animation-delay: 0.5s;
+        }
+        .header-sticker.right {
+            right: -30px;
+            top: -10px;
+            animation-delay: 1s;
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto relative">
+        <span class="header-sticker left">✨</span>
+        <span class="header-sticker right">💖</span>
+
+        <header class="text-center mb-8 md:mb-12 relative">
+            <h1 class="text-3xl md:text-4xl font-bold text-[#6A5ACD]">Jadwal Perawatan Diri Tahunan</h1>
+            <p class="mt-2 text-lg text-[#87CEEB]">Panduan komprehensif untuk rambut, kulit wajah, dan tubuh Anda. ☁️</p>
+        </header>
+
+        <main>
+            <section id="yearly-planner" class="mb-12 bg-white p-6 rounded-2xl shadow-lg border border-[#DDA0DD]">
+                <div class="flex justify-between items-center mb-6">
+                    <button id="prev-month-btn" class="p-2 rounded-full bg-[#FFB6C1] hover:bg-[#FFD1DC] text-white font-bold text-xl">‹</button>
+                    <h2 id="current-month-year" class="text-2xl font-semibold text-[#6A5ACD]"></h2>
+                    <button id="next-month-btn" class="p-2 rounded-full bg-[#FFB6C1] hover:bg-[#FFD1DC] text-white font-bold text-xl">›</button>
+                </div>
+                <div class="grid grid-cols-7 text-center font-medium text-[#6A5ACD] mb-4">
+                    <span>Min</span>
+                    <span>Sen</span>
+                    <span>Sel</span>
+                    <span>Rab</span>
+                    <span>Kam</span>
+                    <span>Jum</span>
+                    <span>Sab</span>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                </div>
+            </section>
+            
+            <section id="detail-view" class="bg-white p-6 rounded-2xl shadow-lg border border-[#DDA0DD] min-h-[300px]">
+                <div id="detail-content" class="text-center flex items-center justify-center h-full">
+                    <p class="text-[#87CEEB]">Pilih tanggal di kalender untuk melihat detail rutinitas harian. 💫</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const hairCareData = {
+            // Minggu (Sunday) - 0
+            0: { 
+                hair: {
+                    title: "Keramas Mendalam + Masker Keratin",
+                    focus: "Perbaikan kerusakan intensif, penguatan rambut, dan kelembapan ekstra.",
+                    routine: [
+                        { icon: '🧴', task: "Shampoo Caviar: Basahi rambut, tuangkan secukupnya, pijat lembut kulit kepala dan batang rambut. Bilas hingga bersih." },
+                        { icon: '💆‍♀️', task: "Masker Keratin: Setelah keramas, peras kelebihan air. Oleskan dari tengah hingga ujung rambut. Diamkan 15-20 menit, bisa dibungkus handuk hangat." },
+                        { icon: '🚿', task: "Bilas Tuntas Masker hingga bersih." },
+                        { icon: '✨', task: "Conditioner Caviar: Setelah masker, aplikasikan hanya pada batang dan ujung rambut. Diamkan 2-3 menit, lalu bilas bersih." }
+                    ]
+                },
+                skincare: {
+                    title: "Skincare Pagi & Malam + Masker Wajah",
+                    routine: [
+                        { icon: '☀️', task: "Pagi: Cleanser, Toner, Serum, Moisturizer, Sunscreen." },
+                        { icon: '🌙', task: "Malam: Cleanser, Toner, Serum, Moisturizer." },
+                        { icon: '🎭', task: "Masker Wajah: Setelah Cleanser & Toner malam, aplikasikan masker. Diamkan 10-15 menit, bilas bersih, lalu lanjutkan Serum & Moisturizer." }
+                    ]
+                },
+                bodycare: {
+                    title: "Body Scrub + Body Lotion",
+                    routine: [
+                        { icon: ' scrub', task: "Body Scrub/Lulur: Saat mandi, aplikasikan lulur ke seluruh tubuh. Gosok lembut, bilas bersih. Lakukan 1-2x seminggu." },
+                        { icon: '🧴', task: "Body Lotion/Moisturizer: Setelah mandi, aplikasikan ke seluruh tubuh." }
+                    ]
+                }
+            },
+            // Senin (Monday) - 1
+            1: { 
+                hair: {
+                    title: "Istirahat Rambut",
+                    focus: "Biarkan rambut bernapas dan minyak alami bekerja.",
+                    routine: [
+                        { icon: '😴', task: "Hari ini tidak ada jadwal keramas." }
+                    ]
+                },
+                skincare: {
+                    title: "Skincare Pagi & Malam + Exfoliasi",
+                    routine: [
+                        { icon: '☀️', task: "Pagi: Cleanser, Toner, Serum, Moisturizer, Sunscreen." },
+                        { icon: '🌙', task: "Malam: Cleanser, Exfoliasi (chemical/physical), Toner, Serum, Moisturizer." }
+                    ]
+                },
+                bodycare: {
+                    title: "Body Lotion",
+                    routine: [
+                        { icon: '🧴', task: "Body Lotion/Moisturizer: Setelah mandi, aplikasikan ke seluruh tubuh." }
+                    ]
+                }
+            },
+            // Selasa (Tuesday) - 2
+            2: { 
+                hair: {
+                    title: "Keramas Rutin",
+                    focus: "Membersihkan rambut dari kotoran dan minyak sehari-hari.",
+                    routine: [
+                        { icon: '🧴', task: "Shampoo Caviar: Cuci rambut seperti biasa. Bilas hingga bersih." },
+                        { icon: '✨', task: "Conditioner Caviar: Aplikasikan pada batang & ujung rambut. Diamkan 2-3 menit, lalu bilas bersih." }
+                    ]
+                },
+                skincare: {
+                    title: "Skincare Pagi & Malam + Retinol",
+                    routine: [
+                        { icon: '☀️', task: "Pagi: Cleanser, Toner, Serum, Moisturizer, Sunscreen." },
+                        { icon: '🌙', task: "Malam: Cleanser, Toner, Retinol, Moisturizer." }
+                    ]
+                },
+                bodycare: {
+                    title: "Body Lotion",
+                    routine: [
+                        { icon: '🧴', task: "Body Lotion/Moisturizer: Setelah mandi, aplikasikan ke seluruh tubuh." }
+                    ]
+                }
+            },
+            // Rabu (Wednesday) - 3
+            3: { 
+                hair: {
+                    title: "Istirahat Rambut",
+                    focus: "Memberi jeda pada rambut dan kulit kepala dari paparan produk.",
+                    routine: [
+                        { icon: '😴', task: "Hari ini tidak ada jadwal keramas." }
+                    ]
+                },
+                skincare: {
+                    title: "Skincare Pagi & Malam + Masker Wajah",
+                    routine: [
+                        { icon: '☀️', task: "Pagi: Cleanser, Toner, Serum, Moisturizer, Sunscreen." },
+                        { icon: '🌙', task: "Malam: Cleanser, Toner, Serum, Moisturizer." },
+                        { icon: '🎭', task: "Masker Wajah: Setelah Cleanser & Toner malam, aplikasikan masker. Diamkan 10-15 menit, bilas bersih, lalu lanjutkan Serum & Moisturizer." }
+                    ]
+                },
+                bodycare: {
+                    title: "Body Lotion",
+                    routine: [
+                        { icon: '🧴', task: "Body Lotion/Moisturizer: Setelah mandi, aplikasikan ke seluruh tubuh." }
+                    ]
+                }
+            },
+            // Kamis (Thursday) - 4
+            4: { 
+                hair: {
+                    title: "Keramas + Creambath",
+                    focus: "Relaksasi kulit kepala, nutrisi tambahan, dan menjaga kelembutan rambut.",
+                    routine: [
+                        { icon: '🧴', task: "Shampoo Caviar: Cuci rambut seperti biasa. Bilas hingga bersih." },
+                        { icon: '💆‍♀️', task: "Creambath: Setelah keramas, peras air dari rambut. Oleskan krim dari pangkal hingga ujung rambut, pijat lembut kulit kepala. Diamkan selama 10-15 menit." },
+                        { icon: '🚿', task: "Bilas Tuntas Creambath hingga bersih." },
+                        { icon: '✨', task: "Conditioner Caviar: Aplikasikan sebagai langkah akhir. Diamkan 2-3 menit, lalu bilas bersih." }
+                    ]
+                },
+                skincare: {
+                    title: "Skincare Pagi & Malam + Exfoliasi",
+                    routine: [
+                        { icon: '☀️', task: "Pagi: Cleanser, Toner, Serum, Moisturizer, Sunscreen." },
+                        { icon: '🌙', task: "Malam: Cleanser, Exfoliasi (chemical/physical), Toner, Serum, Moisturizer." }
+                    ]
+                },
+                bodycare: {
+                    title: "Body Scrub + Body Lotion",
+                    routine: [
+                        { icon: ' scrub', task: "Body Scrub/Lulur: Saat mandi, aplikasikan lulur ke seluruh tubuh. Gosok lembut, bilas bersih. Lakukan 1-2x seminggu." },
+                        { icon: '🧴', task: "Body Lotion/Moisturizer: Setelah mandi, aplikasikan ke seluruh tubuh." }
+                    ]
+                }
+            },
+            // Jumat (Friday) - 5
+            5: { 
+                hair: {
+                    title: "Istirahat Rambut",
+                    focus: "Waktu bagi rambut untuk memulihkan diri secara alami.",
+                    routine: [
+                        { icon: '😴', task: "Hari ini tidak ada jadwal keramas." }
+                    ]
+                },
+                skincare: {
+                    title: "Skincare Pagi & Malam + Retinol",
+                    routine: [
+                        { icon: '☀️', task: "Pagi: Cleanser, Toner, Serum, Moisturizer, Sunscreen." },
+                        { icon: '🌙', task: "Malam: Cleanser, Toner, Retinol, Moisturizer." }
+                    ]
+                },
+                bodycare: {
+                    title: "Body Lotion",
+                    routine: [
+                        { icon: '🧴', task: "Body Lotion/Moisturizer: Setelah mandi, aplikasikan ke seluruh tubuh." }
+                    ]
+                }
+            },
+            // Sabtu (Saturday) - 6
+            6: { 
+                hair: {
+                    title: "Keramas Rutin (Opsional)",
+                    focus: "Sesuaikan dengan kebutuhan. Keramas jika rambut terasa sangat kotor atau berminyak.",
+                    routine: [
+                        { icon: '🧴', task: "Shampoo Caviar: Keramas seperti biasa (jika diperlukan). Bilas hingga bersih." },
+                        { icon: '✨', task: "Conditioner Caviar: Aplikasikan di batang & ujung rambut (jika keramas). Diamkan 2-3 menit, lalu bilas bersih." }
+                    ]
+                },
+                skincare: {
+                    title: "Skincare Pagi & Malam",
+                    routine: [
+                        { icon: '☀️', task: "Pagi: Cleanser, Toner, Serum, Moisturizer, Sunscreen." },
+                        { icon: '🌙', task: "Malam: Cleanser, Toner, Serum, Moisturizer." }
+                    ]
+                },
+                bodycare: {
+                    title: "Body Lotion",
+                    routine: [
+                        { icon: '🧴', task: "Body Lotion/Moisturizer: Setelah mandi, aplikasikan ke seluruh tubuh." }
+                    ]
+                }
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const calendarGrid = document.getElementById('calendar-grid');
+            const currentMonthYearDisplay = document.getElementById('current-month-year');
+            const prevMonthBtn = document.getElementById('prev-month-btn');
+            const nextMonthBtn = document.getElementById('next-month-btn');
+            const detailContent = document.getElementById('detail-content');
+            
+            let currentDisplayDate = new Date(); 
+            let selectedDate = null; 
+            const today = new Date(); 
+
+            function renderCalendar() {
+                calendarGrid.innerHTML = '';
+                const year = currentDisplayDate.getFullYear();
+                const month = currentDisplayDate.getMonth();
+                
+                currentMonthYearDisplay.textContent = new Date(year, month).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+
+                const firstDayOfMonth = new Date(year, month, 1).getDay(); 
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                for (let i = 0; i < firstDayOfMonth; i++) {
+                    const emptyCell = document.createElement('div');
+                    emptyCell.className = 'day-cell p-2 h-16 rounded-xl flex flex-col items-center justify-center bg-gray-50 text-gray-400 inactive';
+                    calendarGrid.appendChild(emptyCell);
+                }
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(year, month, day);
+                    const dayCell = document.createElement('div');
+                    dayCell.className = 'day-cell p-2 h-16 rounded-xl border-2 border-[#DDA0DD] flex flex-col items-center justify-center text-sm';
+                    
+                    if (date.getDate() === today.getDate() &&
+                        date.getMonth() === today.getMonth() &&
+                        date.getFullYear() === today.getFullYear()) {
+                        dayCell.classList.add('today');
+                        selectedDate = date; 
+                    }
+
+                    if (selectedDate && 
+                        date.getDate() === selectedDate.getDate() &&
+                        date.getMonth() === selectedDate.getMonth() &&
+                        date.getFullYear() === selectedDate.getFullYear() &&
+                        !dayCell.classList.contains('today')) {
+                        dayCell.classList.add('active');
+                    }
+
+                    dayCell.textContent = day;
+                    dayCell.dataset.date = date.toISOString(); 
+
+                    dayCell.addEventListener('click', () => {
+                        const prevActive = document.querySelector('.day-cell.active');
+                        if (prevActive) {
+                            prevActive.classList.remove('active');
+                        }
+                        dayCell.classList.add('active');
+                        selectedDate = new Date(dayCell.dataset.date);
+                        displayDayDetails(selectedDate);
+                    });
+                    calendarGrid.appendChild(dayCell);
+                }
+
+                if (selectedDate) {
+                    displayDayDetails(selectedDate);
+                }
+            }
+
+            function displayDayDetails(date) {
+                const dayOfWeek = date.getDay(); 
+                const data = hairCareData[dayOfWeek];
+                const formattedDate = date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+                let hairRoutineHtml = data.hair.routine.map((item, index) => `
+                    <div class="task-item flex items-start space-x-4 py-2">
+                        <span class="text-xl">${item.icon}</span>
+                        <div class="flex items-center flex-1">
+                             <input type="checkbox" id="hair-task-${date.toISOString()}-${index}" class="h-5 w-5 rounded border-gray-300 text-[#6A5ACD] focus:ring-[#6A5ACD]">
+                             <label for="hair-task-${date.toISOString()}-${index}" class="ml-2">${item.task}</label>
+                        </div>
+                    </div>
+                `).join('');
+
+                let skincareRoutineHtml = data.skincare.routine.map((item, index) => `
+                    <div class="task-item flex items-start space-x-4 py-2">
+                        <span class="text-xl">${item.icon}</span>
+                        <div class="flex items-center flex-1">
+                             <input type="checkbox" id="skincare-task-${date.toISOString()}-${index}" class="h-5 w-5 rounded border-gray-300 text-[#6A5ACD] focus:ring-[#6A5ACD]">
+                             <label for="skincare-task-${date.toISOString()}-${index}" class="ml-2">${item.task}</label>
+                        </div>
+                    </div>
+                `).join('');
+
+                let bodycareRoutineHtml = data.bodycare.routine.map((item, index) => `
+                    <div class="task-item flex items-start space-x-4 py-2">
+                        <span class="text-xl">${item.icon}</span>
+                        <div class="flex items-center flex-1">
+                             <input type="checkbox" id="bodycare-task-${date.toISOString()}-${index}" class="h-5 w-5 rounded border-gray-300 text-[#6A5ACD] focus:ring-[#6A5ACD]">
+                             <label for="bodycare-task-${date.toISOString()}-${index}" class="ml-2">${item.task}</label>
+                        </div>
+                    </div>
+                `).join('');
+
+                detailContent.innerHTML = `
+                    <div class="text-left w-full">
+                        <h3 class="text-xl font-bold text-[#6A5ACD] mb-2">${formattedDate}</h3>
+
+                        <div class="mb-6">
+                            <h4 class="text-lg font-semibold text-[#FF69B4]">💇‍♀️ Hair Care: ${data.hair.title}</h4>
+                            <p class="text-sm text-[#87CEEB] mb-2">${data.hair.focus || ''}</p>
+                            ${hairRoutineHtml}
+                        </div>
+
+                        <div class="mb-6">
+                            <h4 class="text-lg font-semibold text-[#FF69B4]">🧖‍♀️ Skincare: ${data.skincare.title}</h4>
+                            ${skincareRoutineHtml}
+                        </div>
+
+                        <div class="mb-2">
+                            <h4 class="text-lg font-semibold text-[#FF69B4]">🛁 Bodycare: ${data.bodycare.title}</h4>
+                            ${bodycareRoutineHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            prevMonthBtn.addEventListener('click', () => {
+                currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
+                renderCalendar();
+            });
+
+            nextMonthBtn.addEventListener('click', () => {
+                currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
+                renderCalendar();
+            });
+
+            // Initial render
+            renderCalendar();
+        });
+    </script>
+</body>
+</html>
